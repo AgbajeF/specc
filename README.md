@@ -13,10 +13,13 @@ Built by a PM, for PMs.
 **1. Describe your feature**
 No forms. Just a chat. Tell Specc what you're building — rough is fine.
 
-**2. Answer a few targeted questions**
-Before writing anything, Specc asks 3 clarifying questions based on your specific idea. These are the gaps that would have caused a revision cycle later.
+**2. Name it — or let Specc suggest one**
+Specc asks if you already have a name. If you do, great. If not, it generates 5 options based on your description — pick one, or use it as a starting point. Takes 10 seconds either way.
 
-**3. Get your PRD — live, as it's written**
+**3. Answer a few targeted questions**
+Before writing anything, Specc asks clarifying questions based on your specific idea. These are the gaps that would have caused a revision cycle later.
+
+**4. Get your PRD — live, as it's written**
 Output starts streaming within seconds. Specc writes only the sections your feature actually warrants — no bloat. Copy it, download as Markdown, or export to PDF when it's done.
 
 ---

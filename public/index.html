@@ -504,7 +504,9 @@
 // ── State machine ──────────────────────────────────────────────────────────
 const STEPS = {
   INTRO: 'intro',
-  ASK_FEATURE: 'ask_feature',
+  ASK_DESCRIPTION: 'ask_description',
+  ASK_NAME: 'ask_name',
+  PICKING_NAME: 'picking_name',
   ASK_USER: 'ask_user',
   ASK_PROBLEM: 'ask_problem',
   CLARIFYING: 'clarifying',
@@ -515,12 +517,16 @@ const STEPS = {
 
 let state = {
   step: STEPS.INTRO,
+  featureDescription: '',
   featureName: '',
   productType: '',
   targetUser: '',
   problemDescription: '',
   questions: [],
   prdMarkdown: '',
+  _awaitingOwnName: false,
+  _awaitingProductType: false,
+  _awaitingProblem: false,
 };
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
@@ -601,7 +607,14 @@ function buildChips(options) {
 }
 
 function chipSelect(el, value) {
-  // Visually select the chip and auto-send after brief delay
+  // "Use my own name" chip just focuses the input instead of sending
+  if (value === 'Use my own name…') {
+    el.classList.add('selected');
+    state._awaitingOwnName = true;
+    mainInput.focus();
+    setInputHint('Type the name and hit Enter');
+    return;
+  }
   el.classList.add('selected');
   setTimeout(() => {
     mainInput.value = value;
@@ -634,8 +647,12 @@ async function handleSend() {
 
   switch (state.step) {
     case STEPS.INTRO:
-    case STEPS.ASK_FEATURE:
-      await handleFeatureName(raw); break;
+    case STEPS.ASK_DESCRIPTION:
+      await handleDescription(raw); break;
+    case STEPS.ASK_NAME:
+      await handleNameChoice(raw); break;
+    case STEPS.PICKING_NAME:
+      await handleNamePicked(raw); break;
     case STEPS.ASK_USER:
       await handleTargetUser(raw); break;
     case STEPS.ASK_PROBLEM:
@@ -656,20 +673,95 @@ async function handleSend() {
 async function startConversation() {
   await delay(400);
   addSpecc(
-    `What are we working on? Give me a feature name and a rough description — doesn't have to be polished.`,
-    buildChips(['Smart Notifications', 'Onboarding Flow', 'Team Dashboard', 'Search & Filters', 'Mobile App', 'Something else…'])
+    `What feature are you working on? Walk me through the idea — doesn't have to be polished.`,
+    buildChips(['Smarter notifications', 'Onboarding flow', 'Team dashboard', 'Search & filters', 'Mobile experience', 'Something else…'])
   );
-  state.step = STEPS.ASK_FEATURE;
+  state.step = STEPS.ASK_DESCRIPTION;
 }
 
-async function handleFeatureName(raw) {
-  state.featureName = raw;
+// Step 2 — got the description, ask about the name
+async function handleDescription(raw) {
+  state.featureDescription = raw;
   showTyping();
   await delay(700);
   hideTyping();
 
   addSpecc(
-    `Got it — <strong>${escHtml(raw)}</strong>. Who are we building this for? The more specific, the better the output.`,
+    `Got it. Do you already have a name for this?`,
+    buildChips(['Yes, I have a name', 'Help me come up with one'])
+  );
+  state.step = STEPS.ASK_NAME;
+}
+
+// Step 3 — handle name choice
+async function handleNameChoice(raw) {
+  const wantsHelp = raw.toLowerCase().includes('help') || raw.toLowerCase().includes('come up') || raw.toLowerCase().includes('suggest') || raw.toLowerCase().includes('no');
+
+  if (wantsHelp) {
+    showTyping();
+    await delay(500);
+    hideTyping();
+    addSpecc(`On it — let me think through some options based on what you described…`);
+    await fetchNameSuggestions();
+  } else {
+    // They said yes, they have a name
+    showTyping();
+    await delay(500);
+    hideTyping();
+    addSpecc(`What do you want to call it?`);
+    state._awaitingOwnName = true;
+    state.step = STEPS.PICKING_NAME;
+  }
+}
+
+// Step 3b — they typed their own name
+async function handleNamePicked(raw) {
+  if (state._awaitingOwnName) {
+    state.featureName = raw;
+    state._awaitingOwnName = false;
+    await continueToTargetUser();
+  } else {
+    // They picked a generated name chip
+    state.featureName = raw;
+    await continueToTargetUser();
+  }
+}
+
+// Fetch AI-generated name suggestions
+async function fetchNameSuggestions() {
+  showTyping();
+  try {
+    const res = await fetch('/api/name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: state.featureDescription })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const data = await res.json();
+    hideTyping();
+
+    const chipsHtml = buildChips([...data.names, 'Use my own name…']);
+    addSpecc(
+      `Here are a few ideas based on what you described — pick one, or type your own below:`,
+      chipsHtml
+    );
+    state.step = STEPS.PICKING_NAME;
+    setInputHint('Pick a name above or type your own and hit Enter');
+  } catch (err) {
+    hideTyping();
+    addSpecc(`Couldn't generate names right now — just type what you want to call it and we'll keep moving.`);
+    state.step = STEPS.PICKING_NAME;
+    state._awaitingOwnName = true;
+  }
+}
+
+// Shared: move on after name is set
+async function continueToTargetUser() {
+  showTyping();
+  await delay(600);
+  hideTyping();
+  addSpecc(
+    `<strong>${escHtml(state.featureName)}</strong> — nice. Who are we building this for? The more specific, the better the output.`,
     buildChips(['Small business owners', 'Enterprise admins', 'End consumers', 'Developers', 'Internal team', 'Other'])
   );
   state.step = STEPS.ASK_USER;
@@ -678,18 +770,14 @@ async function handleFeatureName(raw) {
 async function handleTargetUser(raw) {
   state.targetUser = raw;
   showTyping();
-  await delay(800);
+  await delay(700);
   hideTyping();
 
-  // Ask product type inline
   addSpecc(
     `Makes sense. Quick one — what type of product are we dealing with?`,
     buildChips(['B2C app', 'B2B software', 'Mobile app', 'Internal tool', 'API / Dev tool', 'Other'])
   );
   state.step = STEPS.ASK_PROBLEM;
-
-  // Wait for product type then ask problem
-  // We'll handle next send as product type + problem combined
   state._awaitingProductType = true;
 }
 

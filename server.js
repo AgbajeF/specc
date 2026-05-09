@@ -17,6 +17,41 @@ You're direct, a little opinionated, and you'd rather give someone an honest "th
 
 You never make things up. If something is unclear or underdefined, you say so plainly. You always think about what could go wrong, what success actually looks like, and what "done" means in practice.`;
 
+// ─── Route: Generate feature name suggestions ─────────────────────────────
+app.post('/api/name', async (req, res) => {
+  const { description } = req.body;
+  if (!description) return res.status(400).json({ error: 'Missing description' });
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 256,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [{
+        role: 'user',
+        content: `A PM just described a feature they're building: "${description}"
+
+Suggest 5 short, sharp names for this feature. Think like a product team naming something for a roadmap or design ticket — not a marketing campaign. Names should be:
+- 1–3 words max
+- Mix of descriptive (what it does) and evocative (how it feels)
+- Natural to say out loud in a standup
+- No buzzwords, no "AI-powered" or "Smart" unless it's genuinely the right word
+
+Return only a JSON object:
+{ "names": ["Name1", "Name2", "Name3", "Name4", "Name5"] }`
+      }]
+    });
+
+    const text = message.content[0].text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse response');
+    res.json(JSON.parse(jsonMatch[0]));
+  } catch (err) {
+    console.error('Name error:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate names' });
+  }
+});
+
 // ─── Route: Generate clarifying questions ─────────────────────────────────
 app.post('/api/clarify', async (req, res) => {
   const { featureName, problemDescription, targetUser, productType } = req.body;
