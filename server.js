@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const express = require('express');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -16,6 +16,71 @@ const SYSTEM_PROMPT = `You are Specc — a sharp, experienced PM who's shipped r
 You're direct, a little opinionated, and you'd rather give someone an honest "this needs more thought" than a polished non-answer. You ask the right questions before writing anything, and when you do write, every sentence earns its place.
 
 You never make things up. If something is unclear or underdefined, you say so plainly. You always think about what could go wrong, what success actually looks like, and what "done" means in practice.`;
+
+// ─── Route: Feature discovery conversation ────────────────────────────────
+app.post('/api/discover', async (req, res) => {
+  const { history } = req.body;
+  if (!history || !Array.isArray(history)) {
+    return res.status(400).json({ error: 'Missing conversation history' });
+  }
+
+  const DISCOVERY_PROMPT = `You are Specc in discovery mode — helping a PM figure out what to build next.
+
+Your job is to have a real conversation: ask smart questions, listen carefully, and then offer opinionated feature ideas grounded in what you've learned. You're not a search engine listing options — you're a sharp colleague who has opinions and will push back.
+
+**Conversation flow:**
+- **Early turns (turns 1–2):** Ask focused questions to understand the product, users, and pain points. One or two questions per turn — don't interrogate. Show you're thinking, not just collecting.
+- **Once you have enough context:** Offer 3–4 specific feature ideas. Each should have a name, a one-sentence description, and a brief "why this, why now" rationale. Be opinionated — say which one you'd build first and why.
+- **Iteration:** If they push back, ask for something different, or want to explore one idea deeper — do it. This is a conversation, not a presentation.
+- **When they pick one:** Confirm you understand what they've chosen, give a brief summary of the feature, and signal readiness to move into the spec phase.
+
+**Tone:** Direct. Collegial. A little opinionated. You'd rather say "I think this one is clearly the strongest" than hedge everything.
+
+**Output format:** You must ALWAYS respond with a JSON object:
+{
+  "reply": "Your conversational response here — markdown is fine for lists/bold",
+  "featureChosen": null,
+  "featureSummary": null
+}
+
+When the user has clearly committed to a specific feature (they said yes, confirmed, picked one — not just asked about it), set:
+{
+  "reply": "Great, [feature name] it is. Here's what we're building: [1-2 sentence summary]. Let's get into the spec.",
+  "featureChosen": "[Feature Name]",
+  "featureSummary": "[Clear 1-2 sentence description of the feature and its core value]"
+}
+
+Never set featureChosen unless the user has explicitly confirmed a choice. Keep exploring until then.`;
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [
+        {
+          role: 'user',
+          content: `${DISCOVERY_PROMPT}\n\n---\n\nHere is the conversation so far:\n\n${history.map(m => `${m.role === 'user' ? 'PM' : 'Specc'}: ${m.content}`).join('\n\n')}\n\nRespond as Specc. Return only the JSON object.`
+        }
+      ]
+    });
+
+    const text = message.content[0].text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse response');
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Validate shape
+    res.json({
+      reply: parsed.reply || '',
+      featureChosen: parsed.featureChosen || null,
+      featureSummary: parsed.featureSummary || null
+    });
+  } catch (err) {
+    console.error('Discover error:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate discovery response' });
+  }
+});
 
 // ─── Route: Generate feature name suggestions ─────────────────────────────
 app.post('/api/name', async (req, res) => {

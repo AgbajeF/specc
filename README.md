@@ -1,8 +1,10 @@
 # Specc — AI PRD Generator
 
-> Describe a feature. Get asked the right questions. Walk away with a PRD your team can actually ship from.
+> Describe a feature — or ask what to build. Get asked the right questions. Walk away with a PRD your team can actually ship from.
 
 Most PRD templates are just fancy documents waiting to be filled in wrong. Specc is different — it has a conversation with you first, identifies what you haven't thought through yet, and then writes the document. The output is sized to what your feature actually needs: a simple internal tool might get 4 focused sections, a complex consumer feature might get 8. No padding, no sections included just to look thorough.
+
+Already know what you're building? Specc takes you straight into the spec. Not sure yet? Ask "what should I add to my product?" and Specc shifts into discovery mode — asks the right questions, offers opinionated ideas, and when you land on something, picks up the spec flow from there. No mode switching, no configuration. It just reads the room.
 
 Built by a PM, for PMs.
 
@@ -10,8 +12,8 @@ Built by a PM, for PMs.
 
 ## How it works
 
-**1. Describe your feature**
-No forms, no dropdowns, no suggestion chips. Just describe what you're building in your own words — the more detail, the better. If Specc needs more to work with, it'll ask a targeted follow-up before moving on.
+**1. Describe your feature — or ask what to build**
+No forms, no dropdowns, no suggestion chips. Describe what you're building, or ask "what features should I add to my product?" Specc detects the intent automatically. If you're vague, it'll ask a targeted follow-up. If you're in discovery mode, it'll ask about your users and pain points before surfacing ideas.
 
 **2. Name it — or let Specc suggest one**
 Specc asks if you already have a name. If you do, great. If not, it generates 5 options based on your description — pick one, or use it as a starting point. Takes 10 seconds either way.

@@ -505,6 +505,7 @@
 const STEPS = {
   INTRO: 'intro',
   ASK_DESCRIPTION: 'ask_description',
+  DISCOVERY: 'discovery',
   ASK_NAME: 'ask_name',
   PICKING_NAME: 'picking_name',
   ASK_USER: 'ask_user',
@@ -524,6 +525,8 @@ let state = {
   problemDescription: '',
   questions: [],
   prdMarkdown: '',
+  discoveryHistory: [],   // full back-and-forth in discovery mode
+  _discoveryMode: false,
   _awaitingMoreDescription: false,
   _awaitingOwnName: false,
   _awaitingProductType: false,
@@ -650,6 +653,8 @@ async function handleSend() {
     case STEPS.INTRO:
     case STEPS.ASK_DESCRIPTION:
       await handleDescription(raw); break;
+    case STEPS.DISCOVERY:
+      await handleDiscovery(raw); break;
     case STEPS.ASK_NAME:
       await handleNameChoice(raw); break;
     case STEPS.PICKING_NAME:
@@ -677,9 +682,44 @@ async function startConversation() {
   state.step = STEPS.ASK_DESCRIPTION;
 }
 
+// ── Intent detection ───────────────────────────────────────────────────────
+function detectIntent(text) {
+  const lower = text.toLowerCase().trim();
+  const discoveryPatterns = [
+    /what (features?|should (i|we)|can (i|we)|to (build|add|create))/,
+    /ideas? (for|on|about)/,
+    /feature (ideas?|suggestions?|recommendations?)/,
+    /(potential|possible|good) features?/,
+    /help me (figure|think|decide|brainstorm|come up)/,
+    /not sure what (to build|to add|to create|feature)/,
+    /how (can|could|should) (i|we) improve/,
+    /what('s| is) (next|missing|lacking|the best feature)/,
+    /where should (i|we) focus/,
+    /what (would|could) (make|improve)/,
+    /\bbrainstorm\b/,
+    /looking for (ideas?|inspiration|suggestions?)/,
+    /what to (build|add|create|ship) next/,
+    /\bnext feature\b/,
+    /improve (my|our|the) (product|app|platform|tool|service)/,
+    /add to (my|our|the) (product|app|platform|tool|service)/,
+  ];
+  const specPatterns = [
+    /i('m| am) (building|creating|adding|working on|designing)/,
+    /i want to (build|create|add|design|ship|make)/,
+    /we('re| are) (building|adding|creating|shipping)/,
+    /feature (where|that|which|for users?|for customers?)/,
+    /i('d| would) like to (build|add|create)/,
+    /trying to (build|add|create|ship)/,
+  ];
+  // Explicit spec signals beat everything
+  if (specPatterns.some(r => r.test(lower))) return 'spec';
+  if (discoveryPatterns.some(r => r.test(lower))) return 'discovery';
+  return 'spec'; // default
+}
+
 // Step 2 — evaluate what they gave us
 async function handleDescription(raw) {
-  // If we already asked a follow-up, this is their second response — add it and move on
+  // If we already asked a spec follow-up, append and proceed
   if (state._awaitingMoreDescription) {
     state.featureDescription += ' ' + raw;
     state._awaitingMoreDescription = false;
@@ -687,32 +727,82 @@ async function handleDescription(raw) {
     return;
   }
 
-  state.featureDescription = raw;
-  const words = raw.trim().split(/\s+/).filter(Boolean);
+  const intent = detectIntent(raw);
 
-  if (words.length < 18) {
-    // Too thin — ask one targeted follow-up to build context
+  if (intent === 'discovery') {
+    // ── Discovery mode ──
+    state._discoveryMode = true;
+    state.featureDescription = raw;
+    state.discoveryHistory = [{ role: 'user', content: raw }];
+    state.step = STEPS.DISCOVERY;
     showTyping();
-    await delay(700);
+    await delay(900);
     hideTyping();
-    const followUp = getFollowUp(raw);
-    addSpecc(followUp);
-    state._awaitingMoreDescription = true;
+    const discoveryOpener = `Sounds like you're looking for ideas on what to build — let's figure that out together. Tell me about the people using this product: who are they, and what's the one thing they struggle with most right now?`;
+    addSpecc(discoveryOpener);
+    state.discoveryHistory.push({ role: 'assistant', content: discoveryOpener });
   } else {
-    await proceedToNaming();
+    // ── Spec mode ──
+    state.featureDescription = raw;
+    const words = raw.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 18) {
+      showTyping();
+      await delay(700);
+      hideTyping();
+      addSpecc(getSpecFollowUp(raw));
+      state._awaitingMoreDescription = true;
+    } else {
+      await proceedToNaming();
+    }
   }
 }
 
-// Pick a smart follow-up based on what (or what's missing from) the description
-function getFollowUp(raw) {
+// Contextual follow-up for vague spec descriptions
+function getSpecFollowUp(raw) {
   const lower = raw.toLowerCase();
   if (!lower.includes('user') && !lower.includes('customer') && !lower.includes('people') && !lower.includes('team') && !lower.includes('who')) {
     return `Tell me more — who's actually using this, and what do they do with it day-to-day? I want to make sure I'm building requirements around the right person.`;
   }
-  if (!lower.includes('problem') && !lower.includes('pain') && !lower.includes('frustrat') && !lower.includes('broken') && !lower.includes('hard') && !lower.includes('slow') && !lower.includes('can\'t') && !lower.includes('don\'t')) {
-    return `Got it. What's the problem this actually solves? What's the user doing today instead, and why is that not good enough?`;
+  if (!lower.includes('problem') && !lower.includes('pain') && !lower.includes('frustrat') && !lower.includes('broken') && !lower.includes('hard') && !lower.includes('slow')) {
+    return `Got it. What's the problem this actually solves? What's the user doing today instead, and why isn't that good enough?`;
   }
-  return `Help me get a clearer picture — what does this look like in practice? Walk me through what a user does, step by step, from the moment they need it.`;
+  return `Help me get a clearer picture — what does this look like in practice? Walk me through what a user does from the moment they need it.`;
+}
+
+// ── Discovery conversation handler ─────────────────────────────────────────
+async function handleDiscovery(raw) {
+  state.discoveryHistory.push({ role: 'user', content: raw });
+  showTyping();
+
+  try {
+    const res = await fetch('/api/discover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: state.discoveryHistory })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const data = await res.json();
+
+    hideTyping();
+
+    // Check if Claude is signalling a feature has been chosen
+    if (data.featureChosen) {
+      state.featureName = data.featureChosen;
+      state.featureDescription = data.featureSummary || state.featureDescription;
+      addSpecc(data.reply);
+      state.discoveryHistory.push({ role: 'assistant', content: data.reply });
+      await delay(1000);
+      // Transition into spec flow at the naming step (name already set)
+      await continueToTargetUser();
+    } else {
+      addSpecc(data.reply);
+      state.discoveryHistory.push({ role: 'assistant', content: data.reply });
+      // Stay in discovery mode
+    }
+  } catch (err) {
+    hideTyping();
+    addSpecc(`Hit a snag — ${escHtml(err.message)}. Try again?`);
+  }
 }
 
 // Move to the naming step
