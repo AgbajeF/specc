@@ -524,6 +524,7 @@ let state = {
   problemDescription: '',
   questions: [],
   prdMarkdown: '',
+  _awaitingMoreDescription: false,
   _awaitingOwnName: false,
   _awaitingProductType: false,
   _awaitingProblem: false,
@@ -669,25 +670,58 @@ async function handleSend() {
 
 // ── Step handlers ──────────────────────────────────────────────────────────
 
-// Step 1 — kick off
+// Step 1 — kick off, no chips
 async function startConversation() {
   await delay(400);
-  addSpecc(
-    `What feature are you working on? Walk me through the idea — doesn't have to be polished.`,
-    buildChips(['Smarter notifications', 'Onboarding flow', 'Team dashboard', 'Search & filters', 'Mobile experience', 'Something else…'])
-  );
+  addSpecc(`What feature are you working on? Walk me through the idea — the more detail you give me, the sharper the output will be.`);
   state.step = STEPS.ASK_DESCRIPTION;
 }
 
-// Step 2 — got the description, ask about the name
+// Step 2 — evaluate what they gave us
 async function handleDescription(raw) {
+  // If we already asked a follow-up, this is their second response — add it and move on
+  if (state._awaitingMoreDescription) {
+    state.featureDescription += ' ' + raw;
+    state._awaitingMoreDescription = false;
+    await proceedToNaming();
+    return;
+  }
+
   state.featureDescription = raw;
+  const words = raw.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length < 18) {
+    // Too thin — ask one targeted follow-up to build context
+    showTyping();
+    await delay(700);
+    hideTyping();
+    const followUp = getFollowUp(raw);
+    addSpecc(followUp);
+    state._awaitingMoreDescription = true;
+  } else {
+    await proceedToNaming();
+  }
+}
+
+// Pick a smart follow-up based on what (or what's missing from) the description
+function getFollowUp(raw) {
+  const lower = raw.toLowerCase();
+  if (!lower.includes('user') && !lower.includes('customer') && !lower.includes('people') && !lower.includes('team') && !lower.includes('who')) {
+    return `Tell me more — who's actually using this, and what do they do with it day-to-day? I want to make sure I'm building requirements around the right person.`;
+  }
+  if (!lower.includes('problem') && !lower.includes('pain') && !lower.includes('frustrat') && !lower.includes('broken') && !lower.includes('hard') && !lower.includes('slow') && !lower.includes('can\'t') && !lower.includes('don\'t')) {
+    return `Got it. What's the problem this actually solves? What's the user doing today instead, and why is that not good enough?`;
+  }
+  return `Help me get a clearer picture — what does this look like in practice? Walk me through what a user does, step by step, from the moment they need it.`;
+}
+
+// Move to the naming step
+async function proceedToNaming() {
   showTyping();
   await delay(700);
   hideTyping();
-
   addSpecc(
-    `Got it. Do you already have a name for this?`,
+    `Okay, I've got a good picture of what we're building. Do you already have a name for this?`,
     buildChips(['Yes, I have a name', 'Help me come up with one'])
   );
   state.step = STEPS.ASK_NAME;
@@ -695,7 +729,7 @@ async function handleDescription(raw) {
 
 // Step 3 — handle name choice
 async function handleNameChoice(raw) {
-  const wantsHelp = raw.toLowerCase().includes('help') || raw.toLowerCase().includes('come up') || raw.toLowerCase().includes('suggest') || raw.toLowerCase().includes('no');
+  const wantsHelp = raw.toLowerCase().includes('help') || raw.toLowerCase().includes('come up') || raw.toLowerCase().includes('suggest') || raw.toLowerCase().includes('no') || raw.toLowerCase().includes('not yet') || raw.toLowerCase().includes('nope');
 
   if (wantsHelp) {
     showTyping();
@@ -704,7 +738,6 @@ async function handleNameChoice(raw) {
     addSpecc(`On it — let me think through some options based on what you described…`);
     await fetchNameSuggestions();
   } else {
-    // They said yes, they have a name
     showTyping();
     await delay(500);
     hideTyping();
@@ -714,17 +747,11 @@ async function handleNameChoice(raw) {
   }
 }
 
-// Step 3b — they typed their own name
+// Step 3b — they typed or picked a name
 async function handleNamePicked(raw) {
-  if (state._awaitingOwnName) {
-    state.featureName = raw;
-    state._awaitingOwnName = false;
-    await continueToTargetUser();
-  } else {
-    // They picked a generated name chip
-    state.featureName = raw;
-    await continueToTargetUser();
-  }
+  state.featureName = raw;
+  state._awaitingOwnName = false;
+  await continueToTargetUser();
 }
 
 // Fetch AI-generated name suggestions
