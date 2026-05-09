@@ -524,6 +524,7 @@ let state = {
   targetUser: '',
   problemDescription: '',
   questions: [],
+  clarifications: [],
   prdMarkdown: '',
   discoveryHistory: [],   // full back-and-forth in discovery mode
   _discoveryMode: false,
@@ -723,7 +724,7 @@ async function handleDescription(raw) {
   if (state._awaitingMoreDescription) {
     state.featureDescription += ' ' + raw;
     state._awaitingMoreDescription = false;
-    await proceedToNaming();
+    await continueToTargetUser();
     return;
   }
 
@@ -752,7 +753,7 @@ async function handleDescription(raw) {
       addSpecc(getSpecFollowUp(raw));
       state._awaitingMoreDescription = true;
     } else {
-      await proceedToNaming();
+      await continueToTargetUser();
     }
   }
 }
@@ -805,13 +806,13 @@ async function handleDiscovery(raw) {
   }
 }
 
-// Move to the naming step
+// Move to the naming step (called after clarifications)
 async function proceedToNaming() {
   showTyping();
   await delay(700);
   hideTyping();
   addSpecc(
-    `Okay, I've got a good picture of what we're building. Do you already have a name for this?`,
+    `Good stuff. One last thing — does this feature have a name yet?`,
     buildChips(['Yes, I have a name', 'Help me come up with one'])
   );
   state.step = STEPS.ASK_NAME;
@@ -837,11 +838,15 @@ async function handleNameChoice(raw) {
   }
 }
 
-// Step 3b — they typed or picked a name
+// Step 3b — they typed or picked a name → go write the PRD
 async function handleNamePicked(raw) {
   state.featureName = raw;
   state._awaitingOwnName = false;
-  await continueToTargetUser();
+  state.step = STEPS.GENERATING;
+  await delay(400);
+  addSpecc(`Writing it up now — give me about 20 seconds ✍️`);
+  await delay(800);
+  await streamPRD(state.clarifications || []);
 }
 
 // Client-side fallback: derive names from description words
@@ -890,13 +895,14 @@ async function fetchNameSuggestions() {
   setInputHint('Pick a name above or type your own and hit Enter');
 }
 
-// Shared: move on after name is set
+// Move on to target user question
 async function continueToTargetUser() {
   showTyping();
   await delay(600);
   hideTyping();
+  const namePrefix = state.featureName ? `<strong>${escHtml(state.featureName)}</strong> — got it. ` : ``;
   addSpecc(
-    `<strong>${escHtml(state.featureName)}</strong> — nice. Who are we building this for? The more specific, the better the output.`,
+    `${namePrefix}Who are we building this for? The more specific, the better the output.`,
     buildChips(['Small business owners', 'Enterprise admins', 'End consumers', 'Developers', 'Internal team', 'Other'])
   );
   state.step = STEPS.ASK_USER;
@@ -1014,15 +1020,25 @@ async function submitClarifications() {
     answer: (document.getElementById(`cq-${i}`)?.value || '').trim() || '(no answer)'
   }));
 
-  state.step = STEPS.GENERATING;
+  // Stash answers — needed if we go through the naming step first
+  state.clarifications = clarifications;
   sendBtn.disabled = true;
 
   addUser('Okay, let\'s go.');
-  await delay(400);
-  addSpecc(`Writing it up now — give me about 20 seconds ✍️`);
 
-  await delay(800);
-  await streamPRD(clarifications);
+  // If name already known (discovery mode), go straight to PRD
+  if (state.featureName) {
+    state.step = STEPS.GENERATING;
+    await delay(400);
+    addSpecc(`Writing it up now — give me about 20 seconds ✍️`);
+    await delay(800);
+    await streamPRD(clarifications);
+  } else {
+    // Spec mode: ask for a name before writing
+    state.step = STEPS.ASK_NAME;
+    await delay(400);
+    await proceedToNaming();
+  }
 }
 
 // ── PRD streaming ──────────────────────────────────────────────────────────
