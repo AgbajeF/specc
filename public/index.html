@@ -469,15 +469,15 @@
           <div class="intro-feat">
             <span class="intro-feat-icon">📄</span>
             <div class="intro-feat-text">
-              <strong>A PRD your team will actually use</strong>
-              Goals, user stories, edge cases, open questions — the full picture.
+              <strong>A PRD sized to what you actually need</strong>
+              Simple feature? You might get 4 sections. Complex one? More. No padding either way.
             </div>
           </div>
           <div class="intro-feat">
             <span class="intro-feat-icon">⚡</span>
             <div class="intro-feat-text">
-              <strong>Done in under a minute</strong>
-              Copy it, download it, or send it straight to your team.
+              <strong>Results start streaming in seconds</strong>
+              Copy it, download as Markdown, or export to PDF when it's done.
             </div>
           </div>
         </div>
@@ -905,7 +905,7 @@ async function streamPRD(clarifications) {
 
     // Follow-up message
     await delay(800);
-    addSpecc(`There it is. Worth flagging the <strong>open questions</strong> in your next sync — those are the things that will slow down dev if they're not resolved. And your engineers will probably push back hardest on the <strong>edge cases</strong>, so the more thought-out that section is, the smoother your kickoff will go. Want me to adjust anything?`);
+    addSpecc(`There it is. If there's an open questions section, get those answered before your dev kickoff — that's usually where builds stall. And if edge cases are in there, your engineers will thank you for reading it closely. Want me to adjust or expand anything?`);
 
     state.step = STEPS.DONE;
     setInputHint('Happy to revise anything — or start fresh with a new feature.');

@@ -109,7 +109,7 @@ app.post('/api/generate', async (req, res) => {
       messages: [
         {
           role: 'user',
-          content: `Write a complete, production-ready PRD for the following feature.
+          content: `Write a PRD for the following feature.
 
 ## Feature Brief
 Feature name: ${featureName}
@@ -121,45 +121,25 @@ Problem to solve: ${problemDescription}
 ${clarificationText}
 
 ## Instructions
-Write this like a senior PM who actually cares — specific, direct, and useful. Use plain language. Don't pad with fluff, don't hedge everything, and don't repeat the brief back at the reader. Every sentence should earn its place.
+Write this like a senior PM who actually cares. Be specific, direct, and useful. Plain language throughout. Don't pad, don't hedge everything, don't repeat the brief back at the reader.
 
----
+**Most importantly: only include sections that this feature actually warrants.** A simple internal tool might need 4 sections. A complex consumer feature might need 8. Let the feature decide — don't force every section just to look thorough. A tight, honest 5-section PRD beats a bloated 10-section one every time.
 
-# ${featureName} — Product Requirements Document
+Here are the sections available to you. Pick the ones that add real value for this specific feature:
 
-## 1. Problem Statement
-[What problem are we solving, for whom, and why now? Include current pain points.]
+- **Problem Statement** — what's broken, for whom, and why it matters now
+- **Goals & Success Metrics** — concrete, measurable outcomes (not vibes)
+- **Non-Goals** — what this explicitly doesn't do (only include if scope creep is a real risk)
+- **User Stories** — as a [user], I want to... (include if the feature has meaningful user journeys)
+- **Functional Requirements** — specific, testable requirements
+- **Acceptance Criteria** — what "done" actually looks like
+- **Edge Cases & Error States** — what could go wrong (include if the feature has real complexity)
+- **Dependencies & Assumptions** — things that must be true for this to ship (include if relevant)
+- **Open Questions** — unresolved decisions that need answers before dev starts (always include if any exist)
+- **PM Notes** — honest risks, ways this could fail, things to watch (always include)
+- **Confidence Score** — X/10 with a plain explanation of what would raise or lower it (always include)
 
-## 2. Goals & Success Metrics
-[3–5 concrete, measurable goals. Format as: Goal → Metric → Target]
-
-## 3. Non-Goals (Out of Scope)
-[What this feature explicitly does NOT do. Be ruthless.]
-
-## 4. User Stories
-[Format: As a [user type], I want to [action] so that [outcome]. Include 4–6 stories.]
-
-## 5. Functional Requirements
-[Numbered list of specific, testable requirements. Group by area if needed.]
-
-## 6. Acceptance Criteria
-[Bullet checklist: "Done means..." — what must be true before this ships?]
-
-## 7. Edge Cases & Error States
-[What could go wrong? How should the product handle it?]
-
-## 8. Open Questions
-[Unresolved decisions that need an answer before or during development.]
-
-## 9. PM Coaching Notes
-[1–3 honest observations: risks, things to watch out for, ways this could fail. Be direct.]
-
-## 10. Confidence Score
-[Rate your confidence in this PRD: X/10. Explain what would raise or lower it.]
-
----
-
-Write the full PRD now.`
+Start with the title, then write only the sections that matter. Number them as you go.`
         }
       ]
     });

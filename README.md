@@ -2,7 +2,7 @@
 
 > Describe a feature. Get asked the right questions. Walk away with a PRD your team can actually ship from.
 
-Most PRD templates are just fancy documents waiting to be filled in wrong. Specc is different — it has a conversation with you first, identifies what you haven't thought through yet, and then writes the document. The result is a structured, 10-section PRD that reflects real decisions, not generic boilerplate.
+Most PRD templates are just fancy documents waiting to be filled in wrong. Specc is different — it has a conversation with you first, identifies what you haven't thought through yet, and then writes the document. The output is sized to what your feature actually needs: a simple internal tool might get 4 focused sections, a complex consumer feature might get 8. No padding, no sections included just to look thorough.
 
 Built by a PM, for PMs.
 
@@ -17,24 +17,27 @@ No forms. Just a chat. Tell Specc what you're building — rough is fine.
 Before writing anything, Specc asks 3 clarifying questions based on your specific idea. These are the gaps that would have caused a revision cycle later.
 
 **3. Get your PRD — live, as it's written**
-The document streams in real time across 10 structured sections. Copy it, download it as Markdown, or export to PDF.
+Output starts streaming within seconds. Specc writes only the sections your feature actually warrants — no bloat. Copy it, download as Markdown, or export to PDF when it's done.
 
 ---
 
 ## What's in the PRD
 
-| Section | What it covers |
-|---|---|
-| Problem Statement | The pain, who feels it, and why it matters now |
-| Goals & Success Metrics | Measurable outcomes — not vibes |
-| Non-Goals | What this feature explicitly doesn't do |
-| User Stories | As a [user], I want to… |
-| Functional Requirements | Specific, testable requirements |
-| Acceptance Criteria | What "done" actually looks like |
-| Edge Cases & Error States | What could go wrong and how to handle it |
-| Open Questions | Decisions that need answers before dev starts |
-| PM Coaching Notes | Honest risks and things to watch out for |
-| Confidence Score | How solid this PRD is, and what would improve it |
+Specc doesn't force a fixed template. It picks the sections your feature actually needs — no more, no less. Here's the full menu it draws from:
+
+| Section | What it covers | Always included? |
+|---|---|---|
+| Problem Statement | The pain, who feels it, and why it matters now | Yes |
+| Goals & Success Metrics | Measurable outcomes — not vibes | Yes |
+| Non-Goals | What this feature explicitly doesn't do | Only if scope creep is a risk |
+| User Stories | As a [user], I want to… | Only if meaningful journeys exist |
+| Functional Requirements | Specific, testable requirements | Yes |
+| Acceptance Criteria | What "done" actually looks like | Yes |
+| Edge Cases & Error States | What could go wrong and how to handle it | Only if real complexity exists |
+| Dependencies & Assumptions | What must be true for this to ship | Only if relevant |
+| Open Questions | Decisions that need answers before dev starts | If any exist |
+| PM Notes | Honest risks and ways this could fail | Yes |
+| Confidence Score | How solid this PRD is, and what would improve it | Yes |
 
 ---
 
