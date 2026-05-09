@@ -11,7 +11,7 @@ Built by a PM, for PMs.
 ## How it works
 
 **1. Describe your feature**
-No forms. Just a chat. Tell Specc what you're building — rough is fine.
+No forms, no dropdowns, no suggestion chips. Just describe what you're building in your own words — the more detail, the better. If Specc needs more to work with, it'll ask a targeted follow-up before moving on.
 
 **2. Name it — or let Specc suggest one**
 Specc asks if you already have a name. If you do, great. If not, it generates 5 options based on your description — pick one, or use it as a starting point. Takes 10 seconds either way.
