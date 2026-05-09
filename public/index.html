@@ -844,32 +844,50 @@ async function handleNamePicked(raw) {
   await continueToTargetUser();
 }
 
+// Client-side fallback: derive names from description words
+function deriveNamesLocally(description) {
+  const stop = new Set(['that','this','with','from','have','will','they','their','when','what','your','which','about','would','could','should','users','user','feature','build','want','need','make','into','also','just','like','some','more','than','then','very','been','were','does','doing','built','adding','where','there','these','those','over','under','after','before','through']);
+  const words = description.replace(/[^a-zA-Z\s]/g,' ').split(/\s+/).filter(w => w.length > 3 && !stop.has(w.toLowerCase())).slice(0,6);
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  const names = [];
+  if (words[0]) names.push(cap(words[0]) + ' Hub');
+  if (words[0] && words[1]) names.push(cap(words[0]) + ' ' + cap(words[1]));
+  if (words[1]) names.push('Quick' + cap(words[1]));
+  if (words[0]) names.push(cap(words[0]) + ' Flow');
+  if (words[2]) names.push(cap(words[2]) + ' View');
+  while (names.length < 3) names.push('Feature ' + (names.length + 1));
+  return names.slice(0, 5);
+}
+
 // Fetch AI-generated name suggestions
 async function fetchNameSuggestions() {
   showTyping();
+  let names = [];
   try {
     const res = await fetch('/api/name', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description: state.featureDescription })
     });
-    if (!res.ok) throw new Error((await res.json()).error);
-    const data = await res.json();
-    hideTyping();
-
-    const chipsHtml = buildChips([...data.names, 'Use my own name…']);
-    addSpecc(
-      `Here are a few ideas based on what you described — pick one, or type your own below:`,
-      chipsHtml
-    );
-    state.step = STEPS.PICKING_NAME;
-    setInputHint('Pick a name above or type your own and hit Enter');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.names && data.names.length > 0) names = data.names;
+    }
   } catch (err) {
-    hideTyping();
-    addSpecc(`Couldn't generate names right now — just type what you want to call it and we'll keep moving.`);
-    state.step = STEPS.PICKING_NAME;
-    state._awaitingOwnName = true;
+    // swallow — client fallback below
   }
+
+  // Always have something to show
+  if (names.length === 0) names = deriveNamesLocally(state.featureDescription);
+
+  hideTyping();
+  const chipsHtml = buildChips([...names, 'Use my own name…']);
+  addSpecc(
+    `Here are a few ideas based on what you described — pick one, or type your own below:`,
+    chipsHtml
+  );
+  state.step = STEPS.PICKING_NAME;
+  setInputHint('Pick a name above or type your own and hit Enter');
 }
 
 // Shared: move on after name is set

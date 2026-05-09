@@ -82,19 +82,32 @@ Never set featureChosen unless the user has explicitly confirmed a choice. Keep 
   }
 });
 
+// ─── Helper: derive fallback names from description text ─────────────────
+function fallbackNamesFromDescription(description) {
+  const stopWords = new Set(['that','this','with','from','have','will','they','their','when','what','your','which','about','would','could','should','users','user','feature','build','want','need','make','into','also','just','like','some','more','than','then','very','been','were','does','doing','built','adding','where','there','these','those','over','under','after','before','through']);
+  const words = description
+    .replace(/[^a-zA-Z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stopWords.has(w.toLowerCase()))
+    .slice(0, 8);
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  const names = [];
+  if (words[0]) names.push(cap(words[0]) + ' Hub');
+  if (words[0] && words[1]) names.push(cap(words[0]) + ' ' + cap(words[1]));
+  if (words[1]) names.push('Quick' + cap(words[1]));
+  if (words[0]) names.push(cap(words[0]) + ' Flow');
+  if (words[2]) names.push(cap(words[2]) + ' View');
+  // Ensure we always return at least 3
+  while (names.length < 3) names.push('Feature ' + (names.length + 1));
+  return names.slice(0, 5);
+}
+
 // ─── Route: Generate feature name suggestions ─────────────────────────────
 app.post('/api/name', async (req, res) => {
   const { description } = req.body;
   if (!description) return res.status(400).json({ error: 'Missing description' });
 
-  try {
-    const message = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 256,
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [{
-        role: 'user',
-        content: `A PM just described a feature they're building: "${description}"
+  const namePrompt = (desc) => `A PM just described a feature they're building: "${desc}"
 
 Suggest 5 short, sharp names for this feature. Think like a product team naming something for a roadmap or design ticket — not a marketing campaign. Names should be:
 - 1–3 words max
@@ -102,19 +115,56 @@ Suggest 5 short, sharp names for this feature. Think like a product team naming 
 - Natural to say out loud in a standup
 - No buzzwords, no "AI-powered" or "Smart" unless it's genuinely the right word
 
-Return only a JSON object:
-{ "names": ["Name1", "Name2", "Name3", "Name4", "Name5"] }`
+Return ONLY a valid JSON object with no other text:
+{ "names": ["Name1", "Name2", "Name3", "Name4", "Name5"] }`;
+
+  // Attempt 1: call Claude and parse JSON
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 256,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: namePrompt(description) }]
+    });
+
+    const text = message.content[0].text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.names && parsed.names.length > 0) {
+        return res.json({ names: parsed.names });
+      }
+    }
+  } catch (err) {
+    console.warn('Name attempt 1 failed:', err.message);
+  }
+
+  // Attempt 2: retry with a stricter, shorter prompt
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 128,
+      messages: [{
+        role: 'user',
+        content: `Give 5 short product feature names for: "${description.slice(0, 200)}". Reply with ONLY this JSON: {"names":["A","B","C","D","E"]}`
       }]
     });
 
     const text = message.content[0].text;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Could not parse response');
-    res.json(JSON.parse(jsonMatch[0]));
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.names && parsed.names.length > 0) {
+        return res.json({ names: parsed.names });
+      }
+    }
   } catch (err) {
-    console.error('Name error:', err);
-    res.status(500).json({ error: err.message || 'Failed to generate names' });
+    console.warn('Name attempt 2 failed:', err.message);
   }
+
+  // Last resort: derive names from description words — always returns something
+  console.warn('Name generation falling back to local derivation');
+  res.json({ names: fallbackNamesFromDescription(description) });
 });
 
 // ─── Route: Generate clarifying questions ─────────────────────────────────
