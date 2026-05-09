@@ -79,9 +79,11 @@ Open `http://localhost:3000` and start a conversation.
 
 ## Why I built this
 
-Writing PRDs from scratch is slow. Using a template without context produces documents that don't reflect the actual complexity of the problem. The gap between "we need a feature" and "here's a document engineering can work from" is where a lot of product velocity gets lost.
+Writing PRDs from scratch is slow. Using a template without context produces documents that don't reflect the actual complexity of the problem. And most AI writing tools just fill in a fixed template — which means you get 10 sections whether your feature warrants 4 or 12, and half of them are padded with generic copy.
 
-Specc is an attempt to close that gap — not by automating away the PM's judgment, but by making sure that judgment gets captured in the document.
+The gap between "we need a feature" and "here's a document engineering can work from" is where a lot of product velocity gets lost.
+
+Specc is an attempt to close that gap — not by automating away the PM's judgment, but by making sure that judgment gets captured in the right level of detail. A quick internal tool should get a tight, focused doc. A complex consumer feature should get the full treatment. The output should match the feature, not the template.
 
 ---
 
